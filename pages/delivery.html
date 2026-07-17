@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConnectFarm — Delivery Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚚</text></svg>" />
+  <link rel="stylesheet" href="../css/globals.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: var(--bg-primary); }
+    .layout { display: flex; min-height: 100vh; }
+    .hamburger-btn { display: none; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); font-size: 1.2rem; cursor: pointer; }
+    @media (max-width: 768px) { .hamburger-btn { display: flex !important; } }
+    .delivery-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: var(--space-5);
+      transition: all var(--transition); margin-bottom: var(--space-4);
+    }
+    .delivery-card.active-delivery { border-color: var(--primary); box-shadow: 0 0 20px var(--primary-glow); }
+    .delivery-card:hover { transform: translateY(-2px); }
+    .vehicle-stat { background: var(--surface); border-radius: var(--radius-lg); padding: var(--space-4); text-align: center; }
+    .expense-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div id="overlay" class="overlay"></div>
+  <div id="sidebar-overlay" class="overlay"></div>
+  <div id="toast-container"></div>
+  <button class="theme-toggle" id="theme-toggle" onclick="CF_APP.toggleTheme()">☀️</button>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">🌿</div>
+        <span class="sidebar-brand">ConnectFarm</span>
+      </div>
+      <nav class="sidebar-nav">
+        <span class="nav-section-label">Deliveries</span>
+        <a class="nav-item active" data-section="overview" onclick="CF_DELIVERY.showSection('overview')"><span class="nav-item-icon">🗺️</span> Live Map</a>
+        <a class="nav-item" data-section="deliveries" onclick="CF_DELIVERY.showSection('deliveries')"><span class="nav-item-icon">📦</span> My Deliveries <span class="nav-item-badge">2</span></a>
+        <span class="nav-section-label">Vehicle</span>
+        <a class="nav-item" data-section="vehicle" onclick="CF_DELIVERY.showSection('vehicle')"><span class="nav-item-icon">🚚</span> Vehicle Details</a>
+        <a class="nav-item" data-section="tracking" onclick="CF_DELIVERY.showSection('tracking')"><span class="nav-item-icon">📍</span> GPS Tracking</a>
+        <span class="nav-section-label">Finance</span>
+        <a class="nav-item" data-section="earnings" onclick="CF_DELIVERY.showSection('earnings')"><span class="nav-item-icon">💰</span> Earnings</a>
+        <a class="nav-item" data-section="expenses" onclick="CF_DELIVERY.showSection('expenses')"><span class="nav-item-icon">🧾</span> Expenses</a>
+        <span class="nav-section-label">Account</span>
+        <a class="nav-item" onclick="CF_AUTH.logout()" style="color:var(--danger);margin-top:auto"><span class="nav-item-icon">🚪</span> Logout</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="sidebar-avatar" id="sidebar-avatar">🚚</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+            <div class="sidebar-user-role" id="sidebar-user-role">Delivery Agent</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+      <header class="page-header">
+        <button class="hamburger-btn" id="hamburger-btn">☰</button>
+        <div>
+          <div class="page-title" id="page-title">Live Map</div>
+          <div class="page-subtitle" id="page-subtitle">Track your active deliveries</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:var(--space-3);align-items:center">
+          <div class="live-indicator"><div class="live-dot"></div> Live</div>
+          <div id="availability-toggle" style="padding:6px var(--space-4);border-radius:var(--radius-full);background:rgba(16,185,129,0.15);border:1px solid var(--primary);color:var(--primary);font-size:var(--text-sm);font-weight:600;cursor:pointer" onclick="CF_DELIVERY.toggleAvailability()">
+            ● Available
+          </div>
+        </div>
+      </header>
+
+      <!-- OVERVIEW / LIVE MAP -->
+      <div id="section-overview" class="page-body">
+        <div class="dashboard-grid" id="delivery-stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:var(--space-6)"></div>
+
+        <!-- Live Map -->
+        <div class="grid" style="grid-template-columns:2fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div style="font-weight:700">Live Delivery Map</div>
+              <div class="live-indicator"><div class="live-dot"></div> Tracking</div>
+            </div>
+            <div class="map-container" style="height:320px;border-radius:0">
+              <div class="map-placeholder">
+                <div class="map-grid"></div>
+                <!-- Route lines -->
+                <div class="map-route" style="transform:rotate(-15deg);top:45%"></div>
+                <!-- Pickup point -->
+                <div class="map-dot" style="top:30%;left:25%;background:var(--secondary)"></div>
+                <!-- Drop point -->
+                <div class="map-dot" style="top:65%;right:25%"></div>
+                <!-- Vehicle -->
+                <div class="map-vehicle" id="live-vehicle">🚚</div>
+                <!-- Labels -->
+                <div style="position:absolute;top:28%;left:20%;background:var(--secondary);color:white;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);z-index:3">PICKUP</div>
+                <div style="position:absolute;top:63%;right:18%;background:var(--primary);color:white;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--radius-full);z-index:3">DROP</div>
+              </div>
+            </div>
+            <div style="padding:var(--space-4) var(--space-5)">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm)">
+                <div>📍 Pickup: Kumar Farm, Nashik</div>
+                <div>🏠 Drop: Andheri West, Mumbai</div>
+                <div style="color:var(--primary)">⏱️ ETA: 25 min</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+            <div class="card" style="background:var(--gradient-primary);border:none;color:white">
+              <div style="font-size:var(--text-sm);opacity:0.8;margin-bottom:var(--space-2)">TODAY'S EARNINGS</div>
+              <div style="font-size:var(--text-4xl);font-weight:900;font-family:var(--font-display)" id="today-earnings">₹0</div>
+              <div style="font-size:var(--text-sm);opacity:0.8;margin-top:4px" id="today-deliveries-count">0 deliveries today</div>
+            </div>
+            <div class="card">
+              <div style="font-weight:700;margin-bottom:var(--space-4)">Active Order</div>
+              <div id="active-order-card">
+                <div style="text-align:center;padding:var(--space-4);color:var(--text-tertiary)">No active delivery</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Today's deliveries -->
+        <div class="card">
+          <div class="section-header" style="margin-bottom:var(--space-4)">
+            <div class="section-title" style="font-size:var(--text-lg)">Today's Deliveries</div>
+            <button class="btn btn-ghost btn-sm" onclick="CF_DELIVERY.showSection('deliveries')">View All</button>
+          </div>
+          <div id="today-deliveries"></div>
+        </div>
+      </div>
+
+      <!-- DELIVERIES -->
+      <div id="section-deliveries" class="page-body" style="display:none">
+        <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-5)">
+          <button class="filter-chip active" onclick="CF_DELIVERY.filterDeliveries('all',this)">All</button>
+          <button class="filter-chip" onclick="CF_DELIVERY.filterDeliveries('active',this)">Active</button>
+          <button class="filter-chip" onclick="CF_DELIVERY.filterDeliveries('pending',this)">Pending</button>
+          <button class="filter-chip" onclick="CF_DELIVERY.filterDeliveries('completed',this)">Completed</button>
+        </div>
+        <div id="all-deliveries-list"></div>
+      </div>
+
+      <!-- VEHICLE -->
+      <div id="section-vehicle" class="page-body" style="display:none">
+        <div style="max-width:700px">
+          <div class="card" style="margin-bottom:var(--space-6)">
+            <div style="display:flex;align-items:center;gap:var(--space-5);margin-bottom:var(--space-5);flex-wrap:wrap">
+              <div style="font-size:4rem">🚚</div>
+              <div>
+                <h3 id="vehicle-model-name">Loading...</h3>
+                <div style="color:var(--text-secondary);font-size:var(--text-sm)" id="vehicle-type-info">—</div>
+                <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
+                  <span class="badge badge-success" id="vehicle-plate">—</span>
+                  <span class="badge badge-info">✅ Insured</span>
+                  <span class="badge badge-accent">🔋 Electric</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)">
+              <div class="vehicle-stat"><div style="font-size:1.5rem;margin-bottom:var(--space-2)">⚡</div><div style="font-weight:700;color:var(--primary)">82%</div><div style="font-size:var(--text-xs);color:var(--text-tertiary)">Battery</div></div>
+              <div class="vehicle-stat"><div style="font-size:1.5rem;margin-bottom:var(--space-2)">🛣️</div><div style="font-weight:700;color:var(--secondary)">18,240</div><div style="font-size:var(--text-xs);color:var(--text-tertiary)">Total KM</div></div>
+              <div class="vehicle-stat"><div style="font-size:1.5rem;margin-bottom:var(--space-2)">🔧</div><div style="font-weight:700">12 Aug</div><div style="font-size:var(--text-xs);color:var(--text-tertiary)">Next Service</div></div>
+              <div class="vehicle-stat"><div style="font-size:1.5rem;margin-bottom:var(--space-2)">📋</div><div style="font-weight:700;color:var(--primary)">Valid</div><div style="font-size:var(--text-xs);color:var(--text-tertiary)">Insurance</div></div>
+            </div>
+          </div>
+          <!-- Battery progress -->
+          <div class="card" style="margin-bottom:var(--space-4)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-3)">
+              <span style="font-weight:600">Battery Status</span>
+              <span style="color:var(--primary);font-weight:700">82% — ~120 km range</span>
+            </div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:82%;background:linear-gradient(90deg,#10b981,#34d399)"></div></div>
+            <div style="margin-top:var(--space-4);font-size:var(--text-sm);color:var(--text-secondary)">
+              Last charged: Today at 6:00 AM • Nearest charging station: 2.1 km
+            </div>
+          </div>
+          <!-- Vehicle documents -->
+          <div class="card">
+            <h4 style="margin-bottom:var(--space-4)">Documents &amp; Compliance</h4>
+            <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface);border-radius:var(--radius)">
+                <div>
+                  <div style="font-weight:500;font-size:var(--text-sm)">Vehicle Registration (RC)</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary)">Valid until Mar 2028</div>
+                </div>
+                <span class="badge badge-success">✅ Valid</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface);border-radius:var(--radius)">
+                <div>
+                  <div style="font-weight:500;font-size:var(--text-sm)">Insurance Policy</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary)">Valid until Dec 2025</div>
+                </div>
+                <span class="badge badge-success">✅ Valid</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface);border-radius:var(--radius)">
+                <div>
+                  <div style="font-weight:500;font-size:var(--text-sm)">Pollution Certificate (PUC)</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary)">Valid until Aug 2025</div>
+                </div>
+                <span class="badge badge-success">✅ Valid</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface);border-radius:var(--radius)">
+                <div>
+                  <div style="font-weight:500;font-size:var(--text-sm)">Driver's License (DL)</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary)">Valid until Oct 2027</div>
+                </div>
+                <span class="badge badge-success">✅ Valid</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GPS TRACKING -->
+      <div id="section-tracking" class="page-body" style="display:none">
+        <div style="max-width:700px">
+          <div class="card" style="margin-bottom:var(--space-5)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
+              <h3>GPS Tracking</h3>
+              <div class="live-indicator"><div class="live-dot"></div> Live</div>
+            </div>
+            <div class="map-container" style="height:350px">
+              <div class="map-placeholder">
+                <div class="map-grid"></div>
+                <div class="map-route" style="width:70%;transform:rotate(-10deg);top:50%"></div>
+                <div class="map-dot" style="top:40%;left:20%;background:var(--secondary)"></div>
+                <div class="map-dot" style="top:60%;right:20%"></div>
+                <div class="map-vehicle" id="tracking-vehicle" style="animation:vehicleMove 4s ease-in-out infinite alternate">🚚</div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="card">
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-2)">CURRENT LOCATION</div>
+              <div style="font-weight:700">Western Express Hwy</div>
+              <div style="font-size:var(--text-xs);color:var(--text-tertiary)">19.2183° N, 72.8554° E</div>
+            </div>
+            <div class="card">
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-2)">CURRENT SPEED</div>
+              <div style="font-weight:700;color:var(--primary);font-size:var(--text-2xl)" id="speed-counter">42</div>
+              <div style="font-size:var(--text-xs);color:var(--text-tertiary)">km/h • Legal limit: 60 km/h</div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:var(--space-4)">
+            <h4 style="margin-bottom:var(--space-4)">Today's Route History</h4>
+            <div style="font-size:var(--text-sm);color:var(--text-secondary)">
+              <div style="padding:var(--space-3) 0;border-bottom:1px solid var(--border)">🟢 06:15 AM — Departed from home</div>
+              <div style="padding:var(--space-3) 0;border-bottom:1px solid var(--border)">📍 07:00 AM — Arrived at Kumar Farm, Nashik</div>
+              <div style="padding:var(--space-3) 0;border-bottom:1px solid var(--border)">📦 07:30 AM — Picked up order ORD-2025-002</div>
+              <div style="padding:var(--space-3) 0;color:var(--primary)">🚚 Now — En route to Andheri West</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EARNINGS -->
+      <div id="section-earnings" class="page-body" style="display:none">
+        <div class="dashboard-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:var(--space-6)" id="earnings-stats-delivery"></div>
+        <div class="charts-grid">
+          <div class="card">
+            <div style="font-weight:700;font-size:var(--text-lg);margin-bottom:var(--space-4)">Monthly Earnings</div>
+            <div style="height:260px"><canvas id="delivery-earnings-chart"></canvas></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+            <div class="card" style="background:var(--gradient-amber);border:none">
+              <div style="color:rgba(255,255,255,0.8);font-size:var(--text-sm);margin-bottom:var(--space-2)">Total Lifetime Earnings</div>
+              <div style="color:white;font-size:var(--text-3xl);font-weight:900;font-family:var(--font-display)">₹1,28,400</div>
+              <div style="color:rgba(255,255,255,0.8);font-size:var(--text-sm);margin-top:var(--space-2)">847 total deliveries</div>
+            </div>
+            <div class="card">
+              <h4 style="margin-bottom:var(--space-4)">Earnings Breakdown</h4>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3);font-size:var(--text-sm)">
+                <div style="display:flex;justify-content:space-between"><span>Delivery charges</span><span style="font-weight:700;color:var(--primary)">₹11,200</span></div>
+                <div style="display:flex;justify-content:space-between"><span>Tips & bonuses</span><span style="font-weight:700;color:var(--secondary)">₹1,400</span></div>
+                <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:var(--space-2)"><strong>Net this month</strong><strong style="color:var(--primary)">₹12,600</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPENSES -->
+      <div id="section-expenses" class="page-body" style="display:none">
+        <div style="max-width:700px">
+          <!-- Summary cards -->
+          <div class="grid grid-cols-2 gap-4" style="margin-bottom:var(--space-5)">
+            <div class="card" style="background:var(--gradient-primary);border:none">
+              <div style="color:rgba(255,255,255,0.8);font-size:var(--text-xs);margin-bottom:var(--space-2)">GROSS EARNINGS THIS MONTH</div>
+              <div style="color:white;font-size:var(--text-2xl);font-weight:900;font-family:var(--font-display)">₹12,600</div>
+            </div>
+            <div class="card">
+              <div style="color:var(--text-secondary);font-size:var(--text-xs);margin-bottom:var(--space-2)">TOTAL EXPENSES THIS MONTH</div>
+              <div style="font-size:var(--text-2xl);font-weight:900;font-family:var(--font-display);color:var(--danger)">₹2,840</div>
+            </div>
+          </div>
+          <!-- Net profit card -->
+          <div class="card" style="margin-bottom:var(--space-5);border-color:var(--primary)">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:var(--text-sm);color:var(--text-secondary)">NET PROFIT THIS MONTH</div>
+                <div style="font-size:var(--text-3xl);font-weight:900;font-family:var(--font-display);color:var(--primary)">₹9,760</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:var(--text-sm);color:var(--text-secondary)">Profit Margin</div>
+                <div style="font-size:var(--text-2xl);font-weight:700;color:var(--primary)">77.5%</div>
+              </div>
+            </div>
+          </div>
+          <!-- Expenses list -->
+          <div class="card" style="margin-bottom:var(--space-5)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
+              <h4>Expense Log</h4>
+              <button class="btn btn-primary btn-sm" onclick="CF_DELIVERY.addExpense()">+ Add Expense</button>
+            </div>
+            <div id="expenses-list"></div>
+          </div>
+          <!-- Add Expense Form -->
+          <div class="card" id="expense-form" style="display:none">
+            <h4 style="margin-bottom:var(--space-4)">Add New Expense</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select class="form-control" id="exp-category">
+                  <option>Fuel/Charging</option><option>Maintenance</option>
+                  <option>Food</option><option>Mobile Recharge</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" class="form-control" id="exp-amount" placeholder="Amount" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-control" id="exp-desc" placeholder="e.g. EV charging at Andheri station" />
+              </div>
+            </div>
+            <div style="display:flex;gap:var(--space-3)">
+              <button class="btn btn-ghost" onclick="document.getElementById('expense-form').style.display='none'">Cancel</button>
+              <button class="btn btn-primary" onclick="CF_DELIVERY.saveExpense()">Save Expense</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/delivery.js"></script>
+</body>
+</html>

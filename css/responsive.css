@@ -1,0 +1,181 @@
+/* ============================================================
+   ConnectFarm — responsive.css
+   Media queries for all screen sizes
+   ============================================================ */
+
+/* ─── Breakpoints ─── */
+/* xs: < 480px | sm: 480-640px | md: 640-768px | lg: 768-1024px | xl: 1024-1280px | 2xl: 1280px+ */
+
+/* ─── Tablet (< 1024px) ─── */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 220px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+  .container { padding: 0 var(--space-4); }
+  .page-body { padding: var(--space-6); }
+}
+
+/* ─── Mobile Large (< 768px) ─── */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+    --header-height: 60px;
+  }
+
+  /* Sidebar becomes drawer on mobile */
+  .sidebar {
+    transform: translateX(-260px);
+    width: 260px;
+    box-shadow: none;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
+  .main-content { margin-left: 0; width: 100%; }
+
+  /* Show hamburger */
+  .hamburger-btn { display: flex !important; }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+  .charts-grid { grid-template-columns: 1fr; }
+  .products-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+  .product-card-img { font-size: 3rem; }
+
+  /* Landing page */
+  .hero-title { font-size: var(--text-4xl) !important; }
+  .hero-subtitle { font-size: var(--text-base) !important; }
+  .features-grid { grid-template-columns: 1fr !important; }
+  .steps-grid { grid-template-columns: 1fr !important; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .testimonials-grid { grid-template-columns: 1fr !important; }
+  .footer-grid { grid-template-columns: 1fr !important; }
+
+  /* Cart sidebar */
+  .cart-sidebar { width: 100%; right: -100%; }
+
+  /* Page header */
+  .page-header { padding: var(--space-4) var(--space-5); }
+  .page-body { padding: var(--space-4) var(--space-5); }
+
+  /* Section header */
+  .section-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+
+  /* Table horizontal scroll */
+  .table-wrapper { border-radius: var(--radius); }
+
+  /* Modals */
+  .modal { padding: var(--space-3); }
+  .modal-content { padding: var(--space-5); border-radius: var(--radius-lg); }
+
+  /* Navbar */
+  .navbar { padding: 0 var(--space-4); }
+  .navbar-search { display: none; }
+  .landing-nav .navbar-search { display: none; }
+
+  /* Chatbot */
+  .chatbot-window { width: calc(100vw - 2rem); right: -var(--space-4); }
+
+  /* Delivery map */
+  .map-container { height: 220px; }
+
+  /* Stat cards */
+  .stat-value { font-size: var(--text-xl); }
+
+  /* Hide some columns in tables on mobile */
+  .hide-mobile { display: none !important; }
+}
+
+/* ─── Mobile Small (< 480px) ─── */
+@media (max-width: 480px) {
+  h1 { font-size: var(--text-4xl); }
+  h2 { font-size: var(--text-3xl); }
+  h3 { font-size: var(--text-2xl); }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .stat-card { padding: var(--space-4); }
+  .stat-icon { width: 40px; height: 40px; font-size: 1.1rem; }
+  .stat-value { font-size: var(--text-lg); }
+
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+  .product-card-body { padding: var(--space-3); }
+  .product-card-img { font-size: 2.5rem; }
+
+  .btn-lg { padding: 12px var(--space-6); font-size: var(--text-sm); }
+  .hero-cta-group { flex-direction: column !important; }
+
+  /* Theme toggle position */
+  .theme-toggle { bottom: var(--space-4); right: var(--space-4); width: 42px; height: 42px; }
+
+  /* Chatbot */
+  .chatbot-widget { bottom: 70px; right: var(--space-3); }
+  .chatbot-btn { width: 46px; height: 46px; font-size: 1.2rem; }
+}
+
+/* ─── Touch devices ─── */
+@media (hover: none) {
+  .product-card:hover { transform: none; box-shadow: none; }
+  .card-hover:hover { transform: none; box-shadow: none; }
+  .hover-lift:hover { transform: none; box-shadow: none; }
+  .btn-primary:hover { transform: none; }
+  .btn-secondary:hover { transform: none; }
+}
+
+/* ─── Landing Page Specific ─── */
+@media (max-width: 900px) {
+  .hero-layout {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: var(--space-8) !important;
+  }
+  .hero-image-area {
+    order: -1;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .hero-cta-group { justify-content: center !important; }
+  .hero-trust-badges { justify-content: center !important; }
+}
+
+/* ─── Utility responsive overrides ─── */
+@media (max-width: 640px) {
+  .sm-hidden { display: none !important; }
+  .sm-full { width: 100% !important; }
+  .sm-text-center { text-align: center !important; }
+  .sm-flex-col { flex-direction: column !important; }
+  .sm-gap-3 { gap: var(--space-3) !important; }
+
+  .filter-bar { gap: var(--space-2); }
+  .filter-chip { font-size: var(--text-xs); padding: 5px var(--space-3); }
+
+  .tabs { gap: 2px; }
+  .tab-btn { font-size: var(--text-xs); padding: 7px var(--space-3); }
+
+  .modal-footer { flex-direction: column; }
+  .modal-footer .btn { width: 100%; }
+}
+
+/* ─── Print (hide decorative) ─── */
+@media print {
+  .sidebar, .chatbot-widget, .theme-toggle, .navbar-actions { display: none; }
+  .main-content { margin-left: 0; }
+}

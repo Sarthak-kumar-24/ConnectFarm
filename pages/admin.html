@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConnectFarm — Admin Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+  <link rel="stylesheet" href="../css/globals.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: var(--bg-primary); }
+    .layout { display: flex; min-height: 100vh; }
+    .hamburger-btn { display: none; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); font-size: 1.2rem; cursor: pointer; }
+    @media (max-width: 768px) { .hamburger-btn { display: flex !important; } }
+    .admin-table-actions { display: flex; gap: var(--space-2); }
+    .activity-item {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) 0; border-bottom: 1px solid var(--border);
+    }
+    .activity-icon { width: 36px; height: 36px; border-radius: var(--radius); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .activity-text { font-size: var(--text-sm); color: var(--text-primary); }
+    .activity-time { font-size: var(--text-xs); color: var(--text-tertiary); }
+  </style>
+</head>
+<body>
+  <div id="overlay" class="overlay"></div>
+  <div id="sidebar-overlay" class="overlay"></div>
+  <div id="toast-container"></div>
+  <button class="theme-toggle" id="theme-toggle" onclick="CF_APP.toggleTheme()">☀️</button>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">🌿</div>
+        <span class="sidebar-brand">ConnectFarm</span>
+      </div>
+      <nav class="sidebar-nav">
+        <span class="nav-section-label">Dashboard</span>
+        <a class="nav-item active" data-section="overview" onclick="CF_ADMIN.showSection('overview')"><span class="nav-item-icon">📊</span> Overview</a>
+        <a class="nav-item" data-section="analytics" onclick="CF_ADMIN.showSection('analytics')"><span class="nav-item-icon">📈</span> Analytics</a>
+        <span class="nav-section-label">Management</span>
+        <a class="nav-item" data-section="orders" onclick="CF_ADMIN.showSection('orders')"><span class="nav-item-icon">📦</span> All Orders <span class="nav-item-badge">47</span></a>
+        <a class="nav-item" data-section="farmers" onclick="CF_ADMIN.showSection('farmers')"><span class="nav-item-icon">🌾</span> Farmers</a>
+        <a class="nav-item" data-section="customers" onclick="CF_ADMIN.showSection('customers')"><span class="nav-item-icon">👥</span> Customers</a>
+        <a class="nav-item" data-section="products" onclick="CF_ADMIN.showSection('products')"><span class="nav-item-icon">🥦</span> Products</a>
+        <a class="nav-item" data-section="delivery" onclick="CF_ADMIN.showSection('delivery')"><span class="nav-item-icon">🚚</span> Delivery Agents</a>
+        <span class="nav-section-label">Platform</span>
+        <a class="nav-item" data-section="settings" onclick="CF_ADMIN.showSection('settings')"><span class="nav-item-icon">⚙️</span> Settings</a>
+        <span class="nav-section-label">Account</span>
+        <a class="nav-item" onclick="CF_AUTH.logout()" style="color:var(--danger)"><span class="nav-item-icon">🚪</span> Sign Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="sidebar-avatar" id="sidebar-avatar">🛡️</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+            <div class="sidebar-user-role" id="sidebar-user-role">Admin</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+      <header class="page-header">
+        <button class="hamburger-btn" id="hamburger-btn">☰</button>
+        <div>
+          <div class="page-title" id="page-title">Platform Overview</div>
+          <div class="page-subtitle" id="page-subtitle">ConnectFarm Admin Panel</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:var(--space-3);align-items:center">
+          <div class="live-indicator"><div class="live-dot"></div> Live Feed</div>
+          <button class="navbar-action-btn" onclick="CF_APP.toast('No new system alerts','info')">🔔</button>
+          <button class="btn btn-primary btn-sm" onclick="CF_APP.toast('Report generated & downloaded!','success')">📊 Export</button>
+        </div>
+      </header>
+
+      <!-- OVERVIEW -->
+      <div id="section-overview" class="page-body">
+        <div class="dashboard-grid" id="admin-stats-grid"></div>
+        <div class="charts-grid">
+          <div class="card">
+            <div class="section-header" style="margin-bottom:var(--space-4)">
+              <div class="section-title" style="font-size:var(--text-lg)">Platform Revenue</div>
+              <select class="form-control" style="width:auto" onchange="CF_ADMIN.updateRevenueChart(this.value)">
+                <option>This Year</option><option>Last 6 Months</option><option>This Month</option>
+              </select>
+            </div>
+            <div style="height:240px"><canvas id="admin-revenue-chart"></canvas></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+            <div class="card" style="flex:1">
+              <div class="section-title" style="font-size:var(--text-base);margin-bottom:var(--space-3)">Category Distribution</div>
+              <div style="height:150px"><canvas id="admin-cat-chart"></canvas></div>
+            </div>
+            <div class="card" style="flex:1">
+              <div class="section-title" style="font-size:var(--text-base);margin-bottom:var(--space-3)">Live Activity Feed</div>
+              <div id="activity-feed" style="max-height:150px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-6">
+          <div class="card">
+            <div class="section-header" style="margin-bottom:var(--space-4)">
+              <div class="section-title" style="font-size:var(--text-lg)">Recent Orders</div>
+              <button class="btn btn-ghost btn-sm" onclick="CF_ADMIN.showSection('orders')">View All</button>
+            </div>
+            <div id="admin-recent-orders"></div>
+          </div>
+          <div class="card">
+            <div class="section-header" style="margin-bottom:var(--space-4)">
+              <div class="section-title" style="font-size:var(--text-lg)">Top Farmers</div>
+            </div>
+            <div id="top-farmers"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div id="section-analytics" class="page-body" style="display:none">
+        <div class="dashboard-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:var(--space-6)" id="analytics-stats"></div>
+        <div class="card" style="margin-bottom:var(--space-6)">
+          <div class="section-title" style="font-size:var(--text-lg);margin-bottom:var(--space-4)">Weekly Orders Trend</div>
+          <div style="height:250px"><canvas id="weekly-orders-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ORDERS -->
+      <div id="section-orders" class="page-body" style="display:none">
+        <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-5);flex-wrap:wrap">
+          <input type="text" class="form-control" style="max-width:280px" placeholder="Search order ID..." id="order-search" oninput="CF_ADMIN.searchOrders(this.value)" />
+          <select class="form-control" style="width:auto" onchange="CF_ADMIN.filterAdminOrders(this.value)">
+            <option value="">All Status</option>
+            <option value="placed">Placed</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="packed">Packed</option>
+            <option value="out_for_delivery">Out for Delivery</option>
+            <option value="delivered">Delivered</option>
+          </select>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr>
+              <th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th>
+              <th>Status</th><th>Delivery Agent</th><th>Date</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="admin-orders-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FARMERS -->
+      <div id="section-farmers" class="page-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5)">
+          <div class="section-title" style="font-size:var(--text-xl)">Farmer Management</div>
+          <button class="btn btn-primary" onclick="CF_APP.toast('Farmer invitation sent! 📧','success')">+ Invite Farmer</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Farmer</th><th>Farm</th><th>Location</th><th>Products</th><th>Rating</th><th>Earnings</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="farmers-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div id="section-customers" class="page-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5)">
+          <div class="section-title" style="font-size:var(--text-xl)">Customer Management</div>
+          <input type="text" class="form-control" style="max-width:280px" placeholder="Search customers..." />
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Customer</th><th>Email</th><th>City</th><th>Orders</th><th>Loyalty Points</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="customers-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div id="section-products" class="page-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5)">
+          <div class="section-title" style="font-size:var(--text-xl)">Product Catalog</div>
+          <div style="display:flex;gap:var(--space-3)">
+            <input type="text" class="form-control" style="max-width:240px" placeholder="Search products..." oninput="CF_ADMIN.searchProducts(this.value)" />
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Product</th><th>Farmer</th><th>Category</th><th>Price</th><th>Stock</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="admin-products-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DELIVERY AGENTS -->
+      <div id="section-delivery" class="page-body" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5)">
+          <div class="section-title" style="font-size:var(--text-xl)">Delivery Agents</div>
+          <button class="btn btn-primary" onclick="CF_APP.toast('Agent onboarding form sent!','success')">+ Add Agent</button>
+        </div>
+        <div id="delivery-agents-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--space-4)"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="section-settings" class="page-body" style="display:none">
+        <div style="max-width:700px">
+          <div class="card" style="margin-bottom:var(--space-5)">
+            <h3 style="margin-bottom:var(--space-5)">Platform Settings</h3>
+            <div class="form-group">
+              <label class="form-label">Platform Commission (%)</label>
+              <input type="number" class="form-control" value="8" id="platform-commission" />
+              <div class="form-hint">Current: 8% deducted from farmer payments</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Min Order Amount (₹)</label>
+              <input type="number" class="form-control" value="100" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Free Delivery Above (₹)</label>
+              <input type="number" class="form-control" value="500" />
+            </div>
+            <button class="btn btn-primary" onclick="CF_APP.toast('Settings saved!','success')">Save Settings</button>
+          </div>
+          <div class="card" style="margin-bottom:var(--space-5)">
+            <h3 style="margin-bottom:var(--space-5)">Notification Settings</h3>
+            <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:500;font-size:var(--text-sm)">New order notifications</div>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked onchange="CF_APP.toast('Notification setting updated','info')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:500;font-size:var(--text-sm)">Farmer join requests</div>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked onchange="CF_APP.toast('Notification setting updated','info')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:500;font-size:var(--text-sm)">Customer complaints</div>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked onchange="CF_APP.toast('Notification setting updated','info')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:500;font-size:var(--text-sm)">Daily revenue report</div>
+                <label class="toggle-switch">
+                  <input type="checkbox" checked onchange="CF_APP.toast('Notification setting updated','info')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:500;font-size:var(--text-sm)">Low stock alerts</div>
+                <label class="toggle-switch">
+                  <input type="checkbox" onchange="CF_APP.toast('Notification setting updated','info')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Farmer Modal -->
+  <div class="modal" id="add-farmer-modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">Invite Farmer</h3><button class="modal-close" onclick="CF_APP.closeModal('add-farmer-modal')">✕</button></div>
+      <div class="form-group"><label class="form-label">Farmer Email</label><input type="email" class="form-control" /></div>
+      <div class="form-group"><label class="form-label">Farm Name</label><input type="text" class="form-control" /></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="CF_APP.closeModal('add-farmer-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="CF_APP.closeModal('add-farmer-modal');CF_APP.toast('Invitation sent!','success')">Send Invite</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/admin.js"></script>
+</body>
+</html>

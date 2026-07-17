@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConnectFarm — Customer Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>" />
+  <link rel="stylesheet" href="../css/globals.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: var(--bg-primary); }
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Address Cards */
+    .address-card {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg); padding: var(--space-5);
+      cursor: pointer; transition: all var(--transition);
+    }
+    .address-card.selected { border-color: var(--primary); background: var(--primary-glow); }
+    .address-card:hover { border-color: var(--border-hover); }
+
+    /* Order Status Badge */
+    .order-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: var(--radius-full);
+      font-size: var(--text-xs); font-weight: 700;
+    }
+    .order-status.placed { background: rgba(139,92,246,0.15); color: var(--accent-light); }
+    .order-status.confirmed { background: rgba(59,130,246,0.15); color: var(--info-light); }
+    .order-status.packed { background: rgba(245,158,11,0.15); color: var(--secondary-light); }
+    .order-status.picked,
+    .order-status.out_for_delivery { background: rgba(245,158,11,0.2); color: var(--secondary); }
+    .order-status.delivered { background: rgba(16,185,129,0.15); color: var(--primary-light); }
+    .order-status.cancelled { background: rgba(239,68,68,0.15); color: var(--danger-light); }
+
+    /* Wishlist Grid */
+    .wishlist-empty { text-align: center; padding: var(--space-20); }
+
+    /* Profile */
+    .profile-header {
+      background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+      border: 1px solid var(--border); border-radius: var(--radius-xl);
+      padding: var(--space-8); display: flex; gap: var(--space-6);
+      align-items: center; margin-bottom: var(--space-6);
+    }
+    .profile-avatar-big {
+      width: 80px; height: 80px; border-radius: var(--radius-full);
+      background: var(--gradient-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; flex-shrink: 0;
+      box-shadow: 0 0 30px var(--primary-glow);
+    }
+    .loyalty-card {
+      background: var(--gradient-primary); border-radius: var(--radius-xl);
+      padding: var(--space-6); color: white; position: relative; overflow: hidden;
+    }
+    .loyalty-card::before {
+      content: ''; position: absolute; top: -30px; right: -30px;
+      width: 120px; height: 120px; border-radius: var(--radius-full);
+      background: rgba(255,255,255,0.1);
+    }
+    .hamburger-btn {
+      display: none; width: 40px; height: 40px; align-items: center;
+      justify-content: center; border-radius: var(--radius); background: var(--surface);
+      border: 1px solid var(--border); font-size: 1.2rem; cursor: pointer;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) { .hamburger-btn { display: flex !important; } }
+    /* Checkout modal layout */
+    .payment-methods { display: grid; grid-template-columns: repeat(3,1fr); gap: var(--space-3); margin-top: var(--space-3); }
+    .payment-option {
+      padding: var(--space-4); border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border); background: var(--surface);
+      text-align: center; cursor: pointer; transition: all var(--transition-fast);
+      font-size: var(--text-sm); font-weight: 600;
+    }
+    .payment-option.selected { border-color: var(--primary); background: var(--primary-glow); color: var(--primary); }
+    .payment-option:hover { border-color: var(--border-hover); }
+  </style>
+</head>
+<body>
+  <div id="overlay" class="overlay" onclick="CF_APP.closeModal('checkout-modal');CF_CART.toggleCartSidebar()"></div>
+  <div id="sidebar-overlay" class="overlay"></div>
+  <div id="toast-container"></div>
+  <button class="theme-toggle" id="theme-toggle" onclick="CF_APP.toggleTheme()">☀️</button>
+
+  <div class="layout">
+    <!-- ════ SIDEBAR ════ -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">🌿</div>
+        <span class="sidebar-brand">ConnectFarm</span>
+      </div>
+      <nav class="sidebar-nav">
+        <span class="nav-section-label">Shop</span>
+        <a class="nav-item active" data-section="shop" onclick="CF_CUSTOMER.showSection('shop')">
+          <span class="nav-item-icon">🛒</span> Browse Products
+        </a>
+        <a class="nav-item" data-section="wishlist" onclick="CF_CUSTOMER.showSection('wishlist')">
+          <span class="nav-item-icon">❤️</span> Wishlist
+          <span class="nav-item-badge" id="wishlist-count">0</span>
+        </a>
+        <span class="nav-section-label">Orders</span>
+        <a class="nav-item" data-section="orders" onclick="CF_CUSTOMER.showSection('orders')">
+          <span class="nav-item-icon">📦</span> My Orders
+          <span class="nav-item-badge" id="orders-badge" style="display:none">!</span>
+        </a>
+        <a class="nav-item" data-section="track" onclick="CF_CUSTOMER.showSection('track')">
+          <span class="nav-item-icon">📍</span> Track Order
+        </a>
+        <span class="nav-section-label">Account</span>
+        <a class="nav-item" data-section="profile" onclick="CF_CUSTOMER.showSection('profile')">
+          <span class="nav-item-icon">👤</span> Profile
+        </a>
+        <a class="nav-item" onclick="CF_AUTH.logout()" style="color:var(--danger);margin-top:auto">
+          <span class="nav-item-icon">🚪</span> Logout
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="CF_CUSTOMER.showSection('profile')">
+          <div class="sidebar-avatar" id="sidebar-avatar">👩</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="sidebar-user-name">—</div>
+            <div class="sidebar-user-role" id="sidebar-user-role">Customer</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ════ MAIN ════ -->
+    <main class="main-content">
+      <!-- Top bar -->
+      <header class="page-header">
+        <button class="hamburger-btn" id="hamburger-btn">☰</button>
+        <div>
+          <div class="page-title" id="page-title">Browse Products</div>
+          <div class="page-subtitle" id="page-subtitle">Discover fresh farm produce</div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:center;margin-left:auto">
+          <!-- Search -->
+          <div class="navbar-search" style="max-width:280px">
+            <input type="text" placeholder="Search products..." id="search-input" oninput="CF_CUSTOMER.handleSearch(this.value)" />
+            <span class="navbar-search-icon">🔍</span>
+          </div>
+          <!-- Cart btn -->
+          <button class="navbar-action-btn" onclick="CF_CART.toggleCartSidebar()">
+            🛒
+            <span class="navbar-badge cart-badge" style="display:none">0</span>
+          </button>
+          <!-- Notif -->
+          <button class="navbar-action-btn" onclick="CF_APP.toast('No new notifications', 'info')">🔔</button>
+        </div>
+      </header>
+
+      <!-- ═══ SECTIONS ═══ -->
+      <!-- SHOP -->
+      <div id="section-shop" class="page-body">
+        <div class="filter-bar" id="category-filters"></div>
+        <div style="display:flex;gap:var(--space-4);align-items:center;margin-bottom:var(--space-5);flex-wrap:wrap">
+          <select class="form-control" style="width:auto;min-width:160px" onchange="CF_CUSTOMER.sortProducts(this.value)">
+            <option value="">Sort: Default</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="rating">Best Rated</option>
+          </select>
+          <span id="product-count" style="color:var(--text-tertiary);font-size:var(--text-sm)"></span>
+        </div>
+        <div class="products-grid" id="products-grid"></div>
+      </div>
+
+      <!-- WISHLIST -->
+      <div id="section-wishlist" class="page-body" style="display:none">
+        <div class="products-grid" id="wishlist-grid"></div>
+      </div>
+
+      <!-- ORDERS -->
+      <div id="section-orders" class="page-body" style="display:none">
+        <div id="orders-list"></div>
+      </div>
+
+      <!-- TRACK -->
+      <div id="section-track" class="page-body" style="display:none">
+        <div style="max-width:600px">
+          <div class="card" style="margin-bottom:var(--space-6)">
+            <h3 style="margin-bottom:var(--space-4)">Track Your Order</h3>
+            <div style="display:flex;gap:var(--space-3)">
+              <input type="text" class="form-control" id="track-input" placeholder="Enter Order ID (e.g. ORD-2025-002)" />
+              <button class="btn btn-primary" onclick="CF_CUSTOMER.trackOrder()">Track</button>
+            </div>
+          </div>
+          <div id="track-result"></div>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div id="section-profile" class="page-body" style="display:none">
+        <div style="max-width:700px">
+          <div class="profile-header">
+            <div class="profile-avatar-big" id="profile-avatar">👩</div>
+            <div>
+              <h2 id="profile-name">—</h2>
+              <p id="profile-email" style="color:var(--text-secondary)">—</p>
+              <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
+                <span class="badge badge-success">✅ Verified</span>
+                <span class="badge badge-info" id="profile-orders-count">— orders</span>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-6" style="margin-bottom:var(--space-6)">
+            <div class="loyalty-card">
+              <div style="font-size:var(--text-xs);opacity:0.8;margin-bottom:var(--space-2)">LOYALTY POINTS</div>
+              <div style="font-size:var(--text-4xl);font-weight:900;font-family:var(--font-display)" id="profile-points">0</div>
+              <div style="font-size:var(--text-sm);opacity:0.8;margin-top:4px">Points = ₹ off next order</div>
+            </div>
+            <div class="card">
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-2)">MEMBER SINCE</div>
+              <div style="font-size:var(--text-xl);font-weight:700" id="profile-joined">—</div>
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:var(--space-3)">📍 <span id="profile-city">—</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <h4 style="margin-bottom:var(--space-5)">Edit Profile</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" class="form-control" id="edit-name" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="text" class="form-control" id="edit-phone" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Default Address</label>
+                <textarea class="form-control" id="edit-address" rows="2"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="CF_CUSTOMER.saveProfile()" style="margin-top:var(--space-4)">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ════ CART SIDEBAR ════ -->
+  <div class="cart-sidebar" id="cart-sidebar">
+    <div class="cart-header">
+      <div class="cart-title">🛒 My Cart</div>
+      <button class="modal-close" onclick="CF_CART.toggleCartSidebar()">✕</button>
+    </div>
+    <div class="cart-items" id="cart-items">
+      <div class="empty-state" style="padding:var(--space-12)">
+        <div class="empty-icon">🛒</div>
+        <h3>Cart is empty</h3>
+        <p>Add some fresh produce!</p>
+      </div>
+    </div>
+    <div class="cart-footer">
+      <div id="cart-summary"></div>
+      <button class="btn btn-primary w-full btn-lg" style="margin-top:var(--space-4)" onclick="CF_CART.checkout()">
+        Proceed to Checkout →
+      </button>
+    </div>
+  </div>
+
+  <!-- ════ CHECKOUT MODAL ════ -->
+  <div class="modal modal-lg" id="checkout-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Complete Your Order 🎉</h3>
+        <button class="modal-close" onclick="CF_APP.closeModal('checkout-modal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Address</label>
+        <textarea class="form-control" id="checkout-address" rows="2" placeholder="Enter your full address"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Slot</label>
+        <select class="form-control" id="checkout-slot">
+          <option>Morning (6 AM – 10 AM)</option>
+          <option>Afternoon (10 AM – 2 PM)</option>
+          <option>Evening (4 PM – 8 PM)</option>
+          <option>Express (2-4 hrs) +₹30</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method</label>
+        <div class="payment-methods">
+          <div class="payment-option selected" onclick="selectPayment('UPI', this)">📱<br>UPI</div>
+          <div class="payment-option" onclick="selectPayment('Card', this)">💳<br>Card</div>
+          <div class="payment-option" onclick="selectPayment('COD', this)">💵<br>COD</div>
+        </div>
+        <input type="hidden" id="selected-payment" value="UPI" />
+      </div>
+      <div class="card" style="background:var(--surface);border-color:var(--border)">
+        <div id="checkout-summary-preview" style="font-size:var(--text-sm)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="CF_APP.closeModal('checkout-modal')">Cancel</button>
+        <button class="btn btn-primary btn-lg" onclick="CF_CUSTOMER.confirmOrder()">Place Order 🎉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ CHATBOT ════ -->
+  <div class="chatbot-widget" id="chatbot-widget">
+    <button class="chatbot-btn">🤖</button>
+    <div class="chatbot-window">
+      <div class="chatbot-header">
+        <div style="font-size:1.5rem">🤖</div>
+        <div class="chatbot-header-info">
+          <div class="chatbot-header-name">FarmBot AI</div>
+          <div class="chatbot-header-status">● Online — Instant replies</div>
+        </div>
+        <button onclick="document.getElementById('chatbot-widget').classList.remove('open')" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:1rem">✕</button>
+      </div>
+      <div class="chatbot-messages"></div>
+      <div class="chatbot-input-area">
+        <input type="text" class="chatbot-input" placeholder="Ask me anything..." />
+        <button class="chatbot-send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/cart.js"></script>
+  <script src="../js/ai-bot.js"></script>
+  <script src="../js/customer.js"></script>
+</body>
+</html>
